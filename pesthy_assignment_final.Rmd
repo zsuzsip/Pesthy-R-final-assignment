@@ -1,0 +1,523 @@
+---
+title: "Final project"
+author: "Pesthy Zsuzsi"
+date: "2025-12-14"
+output: html_document
+---
+
+#packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(readr)
+library(psych)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(lme4)
+library(sjPlot)
+library(performance)
+
+
+```
+
+
+#loading data
+```{r}
+spotify_songs <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2020/2020-01-21/spotify_songs.csv')
+
+```
+
+
+
+#exploring data, checking for mistakes
+```{r}
+
+glimpse(spotify_songs)
+
+
+colSums(is.na(spotify_songs))
+#There are five tracks where the song title and artist are missing, and for these the popularity – our main variable – is 0, which is suspicious. I will remove these from the dataset.
+
+data <- spotify_songs %>% 
+  drop_na()
+
+#distribution checks for numeric variables
+hist(data$track_popularity)
+hist(data$danceability)
+hist(data$energy)
+hist(data$loudness)
+hist(data$speechiness)
+hist(data$acousticness)
+hist(data$instrumentalness)
+hist(data$liveness)
+hist(data$valence)
+hist(data$tempo)
+hist(data$duration_ms)
+
+# distribution of categorical variables
+pie(table(data$playlist_genre))
+pie(table(data$playlist_subgenre))
+pie(table(data$mode))
+pie(table(data$key))
+
+
+#descriptive statistics
+data %>%
+  select(track_popularity, danceability, energy, key, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_ms, playlist_genre, playlist_subgenre, mode) %>%
+  describe()
+
+
+#correlation matrix for numeric variables 
+
+num_data <- data[sapply(data, is.numeric)]
+cor(num_data, use = "pairwise.complete.obs")
+
+
+```
+
+
+```{r fig.width=10, fig.height=14}
+
+# Large overview figure: relationship between track popularity and numeric variables
+
+base_theme <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 11),
+    axis.title = element_text(face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# Energy × track popularity
+p_energy <- ggplot(data, aes(x = energy, y = track_popularity)) +
+  geom_point(color = "#4E79A7", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Energy", y = "Track popularity", title = "Energy") +
+  base_theme
+
+# Danceability × track popularity
+p_dance <- ggplot(data, aes(x = danceability, y = track_popularity)) +
+  geom_point(color = "#59A14F", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Danceability", y = "Track popularity", title = "Danceability") +
+  base_theme
+
+# Loudness × track popularity
+p_loudness <- ggplot(data, aes(x = loudness, y = track_popularity)) +
+  geom_point(color = "#9C755F", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Loudness", y = "Track popularity", title = "Loudness") +
+  base_theme
+
+# Speechiness × track popularity
+p_speechiness <- ggplot(data, aes(x = speechiness, y = track_popularity)) +
+  geom_point(color = "#F28E2B", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Speechiness", y = "Track popularity", title = "Speechiness") +
+  base_theme
+
+# Acousticness × track popularity
+p_acousticness <- ggplot(data, aes(x = acousticness, y = track_popularity)) +
+  geom_point(color = "#76B7B2", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Acousticness", y = "Track popularity", title = "Acousticness") +
+  base_theme
+
+# Instrumentalness × track popularity
+p_instrumentalness <- ggplot(data, aes(x = instrumentalness, y = track_popularity)) +
+  geom_point(color = "#EDC948", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Instrumentalness", y = "Track popularity", title = "Instrumentalness") +
+  base_theme
+
+# Liveness × track popularity
+p_liveness <- ggplot(data, aes(x = liveness, y = track_popularity)) +
+  geom_point(color = "#B07AA1", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Liveness", y = "Track popularity", title = "Liveness") +
+  base_theme
+
+# Valence × track popularity
+p_valence <- ggplot(data, aes(x = valence, y = track_popularity)) +
+  geom_point(color = "#E15759", alpha = 0.3, size = 1.3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Valence", y = "Track popularity", title = "Valence") +
+  base_theme
+
+# Tempo × track popularity
+p_tempo <- ggplot(data, aes(x = tempo, y = track_popularity)) +
+  geom_point(color = "#FF9DA7", alpha = 0.25, size = 1.2) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Tempo", y = "Track popularity", title = "Tempo") +
+  base_theme
+
+# Duration × track popularity
+p_duration_ms <- ggplot(data, aes(x = duration_ms, y = track_popularity)) +
+  geom_point(color = "#BAB0AC", alpha = 0.25, size = 1.2) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", fill = "grey80", linewidth = 0.9) +
+  labs(x = "Duration (ms)", y = "Track popularity", title = "Duration") +
+  base_theme
+
+# Combined overview of the plots
+plot_numvar <- cowplot::plot_grid(
+  p_energy, p_dance,
+  p_loudness, p_speechiness,
+  p_acousticness, p_instrumentalness,
+  p_liveness, p_valence,
+  p_tempo, p_duration_ms,
+  labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J"),
+  ncol = 2
+)
+
+plot_numvar
+
+
+
+```
+
+#
+
+```{r}
+
+# Overview of how categorical variables relate to track popularity
+
+# Playlist subgenre × track popularity (mean ± SD)
+p_subgenre_bar <- data %>%
+  group_by(playlist_subgenre) %>%
+  summarise(
+    mean_pop = mean(track_popularity, na.rm = TRUE),
+    sd_pop   = sd(track_popularity, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = reorder(playlist_subgenre, mean_pop), y = mean_pop)) +
+  geom_col(fill = "grey85", color = "black") +
+  geom_errorbar(aes(ymin = mean_pop - sd_pop, ymax = mean_pop + sd_pop), width = 0.2) +
+  coord_flip() +
+  labs(
+    x = "Playlist subgenre",
+    y = "Mean track popularity (± SD)",
+    title = "Playlist subgenre"
+  ) +
+  base_theme
+
+p_subgenre_bar
+
+# Playlist genre × track popularity
+p_genre <- ggplot(data, aes(x = playlist_genre, y = track_popularity)) +
+  geom_boxplot(
+    aes(color = playlist_genre),
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    aes(color = playlist_genre),
+    width = 0.2,
+    alpha = 0.05,
+    size = 0.9
+  ) +
+  labs(
+    x = "Playlist genre",
+    y = "Track popularity",
+    title = "Playlist genre"
+  ) +
+  base_theme +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+p_genre
+
+# Mode (major vs. minor) × track popularity
+p_mode <- ggplot(data, aes(x = factor(mode), y = track_popularity)) +
+  geom_boxplot(
+    aes(color = factor(mode)),
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    aes(color = factor(mode)),
+    width = 0.15,
+    alpha = 0.05,
+    size = 0.9
+  ) +
+  scale_x_discrete(labels = c("Minor", "Major")) +
+  scale_color_viridis_d(guide = "none") +
+  labs(
+    x = "Mode",
+    y = "Track popularity",
+    title = "Mode"
+  ) +
+  base_theme
+
+p_mode
+
+
+```
+#Analysis plan
+```{r}
+#Imagine that we are aspiring musicians who also know a bit of statistics, but despite all our efforts, we just cannot manage to produce a true banger hit. Instead of guessing what might work, we decide to turn to data and let statistics tell us what a song should be like in order to become as popular as possible.
+
+#Following this idea, in this project I build and compare linear mixed-effects models to identify which musical features are the best predictors of track popularity. Mixed-effects models are particularly suitable for this task, as multiple tracks in the dataset are produced by the same artist, violating the assumption of independent observations required by standard linear regression. By including artist as a random effect, the models account for this dependency while allowing us to focus on the general relationships between song characteristics and popularity.
+
+# Predictors were selected to reflect musical features that can be actively adjusted by musicians  (assuming that I cannot/do not want to change myself, so genre and instruments are taken as given). As energy, danceability, valence, tempo, speechiness and mode was used as predictors.
+
+# In addition, I am curious whether it is necessary to consider multiple musical features, or whether it is sufficient that a track is easy to dance to. Therefore, I also build a simpler model to compare it with the more complex one.
+```
+
+#Assmuption checks for LMM
+##building the model
+
+```{r}
+
+#Mean-centering continuous predictors
+data <- data %>%
+  mutate(
+    energy_c        = scale(energy, scale = FALSE),
+    danceability_c  = scale(danceability, scale = FALSE),
+    valence_c       = scale(valence, scale = FALSE),
+    tempo_c         = scale(tempo, scale = FALSE),
+    speechiness_c   = scale(speechiness, scale = FALSE)
+  )
+
+#Mode as categorical predictor
+data$mode_f <- factor(data$mode, labels = c("Minor", "Major"))
+
+#LMM with artist as random intercept
+spotify_model <- lmer(
+  track_popularity ~
+    energy_c +
+    danceability_c +
+    valence_c +
+    tempo_c +
+    speechiness_c +
+    mode_f +
+    (1 | track_artist),
+  data = data
+)
+
+
+```
+
+##checking linearity and homoskedaticity on a residuals vs. fitted plot
+```{r}
+#linearity check with scatterplots
+plot_numvar
+
+#the variables seems to be ok in terms of liearity
+
+#residuals vs. fitted plot
+diag_df <- data.frame(
+  fitted = fitted(spotify_model),
+  resid  = resid(spotify_model)
+)
+
+ggplot(diag_df, aes(x = fitted, y = resid)) +
+  geom_point(color = "grey40", alpha = 0.4, size = 1.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    x = "Fitted values",
+    y = "Residuals",
+    title = "Linearity & homoskedasticity check: residuals vs fitted values"
+  ) +
+  base_theme
+
+
+#Homoscedasticity seems to be violated, with a slight funnel-shaped pattern in the residuals. Track popularity is skewed, with many values close to zero. To handle this, I apply a log transformation to the outcome variable.
+
+# Log-transform track popularity to reduce skewness and heteroscedasticity
+data <- data %>%
+  mutate(
+    track_popularity_log = log(track_popularity + 1)
+  )
+
+# LMM with log-transformed outcome
+spotify_modell_log <- lmer(
+  track_popularity_log ~
+    energy_c +
+    danceability_c +
+    valence_c +
+    tempo_c +
+    speechiness_c +
+    mode_f +
+    (1 | track_artist),
+  data = data
+)
+
+
+#checkyng residuals vs. fitted plot again
+#residuals vs. fitted plot
+diag_df <- data.frame(
+  fitted = fitted(spotify_modell_log),
+  resid  = resid(spotify_modell_log)
+)
+
+ggplot(diag_df, aes(x = fitted, y = resid)) +
+  geom_point(color = "grey40", alpha = 0.4, size = 1.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    x = "Fitted values",
+    y = "Residuals",
+    title = "Linearity & homoskedasticity check: residuals vs fitted values"
+  ) +
+  base_theme
+
+
+# The log transformation did not improve the residual pattern. I therefore return to the original model with untransformed track popularity. LMMs are fairly robust, so this violation is handled as a limitation of the analysis.
+
+
+```
+
+##checking the normality of the residuals
+```{r}
+
+#Q–Q plot of residuals
+diag_df <- data.frame(resid = resid(spotify_model))
+
+ggplot(diag_df, aes(sample = resid)) +
+  stat_qq(color = "grey40", alpha = 0.6) +
+  stat_qq_line(color = "black") +
+  labs(
+    x = "Theoretical quantiles",
+    y = "Sample quantiles",
+    title = "Residual Q–Q plot"
+  ) +
+  base_theme
+
+#histogram of the residuals
+ggplot(diag_df, aes(x = resid)) +
+  geom_histogram(bins = 30, fill = "grey85", color = "black") +
+  labs(
+    x = "Residuals",
+    y = "Count",
+    title = "Residual distribution"
+  ) +
+  base_theme
+
+#based on the plots, normality of the resiusals seems to be ok
+```
+
+##Model convergence and random-effect variance
+```{r}
+#Model convergence and random-effect variance
+summary(spotify_model)
+isSingular(spotify_model, tol = 1e-4)
+
+
+# The extended model converged properly, is not singular, and shows meaningful random-effect variance, indicating that the model assumptions are sufficiently met.
+
+```
+
+
+#interpreation of the complex model
+```{r}
+spotify_model
+summary(spotify_model)  
+tab_model(spotify_model, show.std = TRUE)
+
+# Model summary:
+# Artist-level differences are large (ICC ~ 0.32), so using an LMM with artist as a random effect is justified.
+#Fixed effects (within-artist associations):
+#- Energy: strong negative association with popularity (higher energy -> lower popularity).
+#- Danceability: small positive association (more danceable -> slightly higher popularity).
+#- Valence: clear positive association (more positive mood -> higher popularity).
+#- Mode: major is slightly more popular than minor.
+#- Tempo and speechiness: not significant once the other predictors are in the model.
+# Overall: the audio features explain only a small part of popularity (marginal R2 ~ 0.01),
+# while adding artist differences boosts explained variance a lot (conditional R2 ~ 0.33).
+
+
+
+# Overall, as a musician, I would write a song that avoids extreme energy, focuses on a positive mood and good danceability, leans slightly toward a major key, and does not worry too much about tempo or spoken elements.
+
+
+```
+
+#simple model
+```{r}
+#building the model
+# Simple model: focusing only on danceability
+spotify_model_simple <- lmer(
+  track_popularity ~
+    danceability_c +
+    (1 | track_artist),
+  data = data
+)
+
+
+# 1) Linearity and homoscedasticity: residuals vs fitted values
+diag_simple <- data.frame(
+  fitted = fitted(spotify_model_simple),
+  resid  = resid(spotify_model_simple)
+)
+
+ggplot(diag_simple, aes(x = fitted, y = resid)) +
+  geom_point(color = "grey40", alpha = 0.4, size = 1.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    x = "Fitted values",
+    y = "Residuals",
+    title = "Simple model: residuals vs fitted values"
+  ) +
+  base_theme
+
+# Homoscedasticity, similarly to the previous model, is not perfect.
+
+#Model convergence and random-effect variance
+summary(spotify_model_simple)
+isSingular(spotify_model_simple, tol = 1e-4)
+
+
+#The simple model converged properly, is not singular, and shows meaningful random-effect variance, indicating that the model specification is appropriate from an assumptions perspective.
+
+#Q–Q plot of residuals
+diag_df <- data.frame(resid = resid(spotify_model_simple))
+
+ggplot(diag_df, aes(sample = resid)) +
+  stat_qq(color = "grey40", alpha = 0.6) +
+  stat_qq_line(color = "black") +
+  labs(
+    x = "Theoretical quantiles",
+    y = "Sample quantiles",
+    title = "Residual Q–Q plot"
+  ) +
+  base_theme
+
+#histogram of the residuals
+ggplot(diag_df, aes(x = resid)) +
+  geom_histogram(bins = 30, fill = "grey85", color = "black") +
+  labs(
+    x = "Residuals",
+    y = "Count",
+    title = "Residual distribution"
+  ) +
+  base_theme
+
+#residual normality seems acceptable
+
+
+spotify_model_simple
+summary(spotify_model_simple)  
+tab_model(spotify_model_simple, show.std = TRUE)
+
+#Simple model results: Danceability alone shows a clear positive association with track popularity: more danceable tracks tend to be more popular within the same artist. However, the effect size is small (marginal R2 ~ 0.002), while artist-level differences remain large (ICC ~ 0.32), indicating that danceability by itself explains only a very small part of popularity.
+```
+#comparing the two models
+```{r}
+
+anova(spotify_model_simple, spotify_model)
+
+# Model comparison shows that the extended model fits the data significantly better than the simple, danceability-only model (AIC and BIC values improved, and the p-value indicates a significant improvement and the extended model explains more variance, with higher marginal R² and a slightly higher conditional R²)..This suggests that track popularity depends on multiple musical features jointly, and cannot be explained by danceability alone.
+
+
+```
+
